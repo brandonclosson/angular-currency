@@ -1,16 +1,35 @@
 angular.module('finance', [])
-.factory('currencyConverter', function() {
+.factory('currencyConverter',['$http', function($http) {
 	var cc = {};
-	var usdToForeignRates = {
-		USD: 1,
-		EUR: 0.87579862,
-		CNY: 6.37
-	};
+
+	var YAHOO_FINANCE_URL_PATTERN =
+		'https://query.yahooapis.com/v1/public/yql?q=select * from '+
+        'yahoo.finance.xchange where pair in ("PAIRS")&format=json&'+
+        'env=store://datatables.org/alltableswithkeys&callback=JSON_CALLBACK';
 
 	cc.currencies = ['USD', 'EUR', 'CNY'];
+
+	var usdToForeignRates = {};
+
 	cc.convert = function (amount, inCurr, outCurr) {
 		return amount * (usdToForeignRates[outCurr] / usdToForeignRates[inCurr]); 
 	};
 
+	cc.refresh = function() { 
+		var url = YAHOO_FINANCE_URL_PATTERN.
+					replace('PAIRS', 'USD' + cc.currencies.join('","USD'));
+		return $http.jsonp(url).success(function(data) {
+			var newUsdToForeignRates = {};
+			angular.forEach(data.query.results.rate, function(rate) {
+				var currency = rate.id.substring(3,6);
+        		newUsdToForeignRates[currency] = window.parseFloat(rate.Rate);
+			});
+			usdToForeignRates = newUsdToForeignRates;
+			console.log(data);
+		});
+	}
+
+	cc.refresh();
+
 	return cc;
-});
+}]);
